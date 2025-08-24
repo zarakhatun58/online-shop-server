@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
-import CosmeticOrder from '../models/cosmeticOrder.js';
-import CosmeticUser from '../models/cosmeticUser.js';
+import cosmeticOrder from '../models/Order.js';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -38,7 +37,7 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    const order = await CosmeticOrder.create({
+    const order = await cosmeticOrder.create({
       user: userId,
       items: items.map((i) => ({ product: i._id, qty: i.qty })),
       amount,
@@ -60,7 +59,7 @@ export const createCheckoutSession = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const userId = req.user._id;
-    const orders = await CosmeticOrder.find({ user: userId })
+    const orders = await cosmeticOrder.find({ user: userId })
       .populate('items.product')
       .sort({ createdAt: -1 });
     res.json(orders);
@@ -75,7 +74,7 @@ export const updatePaymentStatus = async (req, res) => {
   const { sessionId, paymentStatus, paymentId } = req.body;
 
   try {
-    const order = await CosmeticOrder.findOne({ 'payment.orderId': sessionId });
+    const order = await cosmeticOrder.findOne({ 'payment.orderId': sessionId });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     order.status = paymentStatus;
@@ -107,7 +106,7 @@ export const stripeWebhook = async (req, res) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const order = await CosmeticOrder.findOne({ 'payment.orderId': session.id });
+    const order = await cosmeticOrder.findOne({ 'payment.orderId': session.id });
     if (order) {
       order.status = 'paid';
       order.payment.paymentId = session.payment_intent;
