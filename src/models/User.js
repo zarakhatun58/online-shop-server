@@ -6,6 +6,7 @@ const cosmeticUserSchema = new mongoose.Schema({
   username: String,
   profilePic: String,
   password: String,
+   address: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now }
 });
 

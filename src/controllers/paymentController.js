@@ -1,28 +1,119 @@
-import Razorpay from 'razorpay'
-import crypto from 'crypto'
-import cosmeticOrder from '../models/Order.js'
+import Stripe from 'stripe';
+import dotenv from 'dotenv';
+import CosmeticOrder from '../models/cosmeticOrder.js';
+import CosmeticUser from '../models/cosmeticUser.js';
 
-const razor = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) ? new Razorpay({key_id:process.env.RAZORPAY_KEY_ID,key_secret:process.env.RAZORPAY_KEY_SECRET}) : null
+dotenv.config();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-export const createRazorpayOrder = async (req,res)=>{
-  if (!razor) return res.status(400).json({ message:'Razorpay not configured' })
-  const { amount, currency='INR', receipt } = req.body
-  if (!amount || amount<=0) return res.status(400).json({ message:'Invalid amount' })
+// ------------------ Create Checkout Session ------------------
+export const createCheckoutSession = async (req, res) => {
+  const { items, email, address } = req.body;
+  const userId = req.user._id; 
+
+  if (!items || items.length === 0) {
+    return res.status(400).json({ error: 'No items provided' });
+  }
+
   try {
-    const o = await razor.orders.create({ amount: Math.round(amount*100), currency, receipt: receipt || 'rcpt_'+Date.now() })
-    res.json(o)
-  } catch (e) {
-    res.status(500).json({ message:'RP order failed', error: e.message })
-  }
-}
+    const amount = items.reduce((sum, i) => sum + i.price * i.qty, 0);
 
-export const verifyRazorpaySignature = async (req,res)=>{
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, server_order_id } = req.body
-  const data = `${razorpay_order_id}|${razorpay_payment_id}`
-  const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(data).digest('hex')
-  if (expected !== razorpay_signature) return res.status(400).json({ message:'Invalid signature' })
-  if (server_order_id) {
-    await cosmeticOrder.findByIdAndUpdate(server_order_id, { status:'paid', payment:{ provider:'razorpay', orderId:razorpay_order_id, paymentId:razorpay_payment_id, signature:razorpay_signature } })
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer_email: email,
+      line_items: items.map((i) => ({
+        price_data: {
+          currency: 'usd',
+          product_data: { name: i.name },
+          unit_amount: i.price * 100, 
+        },
+        quantity: i.qty,
+      })),
+      mode: 'payment',
+      success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
+      metadata: {
+        userId,
+        address,
+      },
+    });
+
+    const order = await CosmeticOrder.create({
+      user: userId,
+      items: items.map((i) => ({ product: i._id, qty: i.qty })),
+      amount,
+      address,
+      payment: {
+        provider: 'stripe',
+        orderId: session.id,
+      },
+    });
+
+    res.status(200).json({ sessionId: session.id, order });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
-  res.json({ status:'ok' })
-}
+};
+
+// ------------------ Get All Orders ------------------
+export const getOrders = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const orders = await CosmeticOrder.find({ user: userId })
+      .populate('items.product')
+      .sort({ createdAt: -1 });
+    res.json(orders);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ------------------ Update Payment Status ------------------
+export const updatePaymentStatus = async (req, res) => {
+  const { sessionId, paymentStatus, paymentId } = req.body;
+
+  try {
+    const order = await CosmeticOrder.findOne({ 'payment.orderId': sessionId });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    order.status = paymentStatus;
+    order.payment.paymentId = paymentId || '';
+    await order.save();
+
+    res.json({ message: 'Payment status updated', order });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+export const stripeWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error(err);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const order = await CosmeticOrder.findOne({ 'payment.orderId': session.id });
+    if (order) {
+      order.status = 'paid';
+      order.payment.paymentId = session.payment_intent;
+      await order.save();
+    }
+  }
+
+  res.json({ received: true });
+};
