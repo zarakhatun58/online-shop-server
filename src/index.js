@@ -19,7 +19,7 @@ app.use(morgan('dev'))
 
 await connectDB()
 
-app.get('/api/health', (_,res)=> res.json({ ok:true, service:'ecommerce-server' }))
+app.get('/', (_,res)=> res.json({ ok:true, service:'ecommerce-server' }))
 
 app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
