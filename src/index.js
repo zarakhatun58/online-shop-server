@@ -12,7 +12,13 @@ import paymentRoutes from './routes/paymentRoute.js'
 dotenv.config()
 const app = express()
 
-app.use(cors({ origin: process.env.CLIENT_URL?.split(',') || ['https://online-shop-rozarpay.onrender.com'], credentials: true }))
+
+app.use(cors({
+  origin: "https://online-shop-rozarpay.onrender.com",
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  credentials: true
+}));
+
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan('dev'))

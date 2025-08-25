@@ -1,4 +1,5 @@
-import { Router } from 'express';
+
+import express, { Router } from 'express'
 import {
   createCheckoutSession,
   updatePaymentStatus,
@@ -12,6 +13,6 @@ router.post('/checkout', protect, createCheckoutSession);
 router.get('/all', protect, getOrders);
 router.put('/payment', protect, updatePaymentStatus);
 
-router.post('/webhook', stripeWebhook);
+router.post('/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 
 export default router;
