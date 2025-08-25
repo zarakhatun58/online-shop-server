@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 // ------------------ Create Checkout Session ------------------
 export const createCheckoutSession = async (req, res) => {
   const { items, email, address } = req.body;
-  const userId = req.user._id; 
+  const userId = req.user._id;
 
   if (!items || items.length === 0) {
     return res.status(400).json({ error: 'No items provided' });
@@ -23,7 +23,7 @@ export const createCheckoutSession = async (req, res) => {
       line_items: items.map((i) => ({
         price_data: {
           currency: 'usd',
-          product_data: { name: i.name }, 
+          product_data: { name: i.name },
           unit_amount: Math.round(i.price * 100),
         },
         quantity: i.qty,
@@ -32,8 +32,8 @@ export const createCheckoutSession = async (req, res) => {
       success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       metadata: {
-        userId,
-        address,
+        userId: userId.toString(),
+        address: address?.toString() || 'Not provided',
       },
     });
 
