@@ -9,7 +9,7 @@ import { protect } from '../middleware/authMiddleware.js';
 const router = Router();
 
 router.post('/checkout', protect, createCheckoutSession);
-router.get('/', protect, getOrders);
+router.get('/all', protect, getOrders);
 router.put('/payment', protect, updatePaymentStatus);
 
 router.post('/webhook', stripeWebhook);
