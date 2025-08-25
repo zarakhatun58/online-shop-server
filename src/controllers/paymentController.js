@@ -23,8 +23,8 @@ export const createCheckoutSession = async (req, res) => {
       line_items: items.map((i) => ({
         price_data: {
           currency: 'usd',
-          product_data: { name: i.name },
-          unit_amount: i.price * 100, 
+          product_data: { name: i.name }, 
+          unit_amount: Math.round(i.price * 100),
         },
         quantity: i.qty,
       })),
