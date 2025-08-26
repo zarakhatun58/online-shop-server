@@ -18,6 +18,17 @@ export const createCheckoutSession = async (req, res) => {
   try {
     const amount = items.reduce((sum, i) => sum + i.price * i.qty, 0);
 
+    const order = await cosmeticOrder.create({
+      user: userId,
+      items: items.map((i) => ({ product: i._id, qty: i.qty })),
+      amount,
+      address,
+      payment: {
+        provider: 'stripe',
+        orderId: '', 
+      },
+    });
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       customer_email: email,
@@ -30,9 +41,8 @@ export const createCheckoutSession = async (req, res) => {
         quantity: i.qty,
       })),
       mode: 'payment',
-      // success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-       success_url: `${process.env.CLIENT_URL}/payment-success?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `http://localhost:5173/payment-cancelled`,
+      success_url: `${process.env.CLIENT_URL}/payment-success?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       metadata: {
         orderId: order._id.toString(),
         userId: userId.toString(),
@@ -40,18 +50,9 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    const order = await cosmeticOrder.create({
-      user: userId,
-      items: items.map((i) => ({ product: i._id, qty: i.qty })),
-      amount,
-      address,
-      payment: {
-        provider: 'stripe',
-        orderId: session.id,
-      },
-    });
-   order.payment.orderId = session.id;
+    order.payment.orderId = session.id;
     await order.save();
+
     res.status(200).json({ sessionId: session.id, order });
   } catch (err) {
     console.error(err);
@@ -115,7 +116,7 @@ export const stripeWebhook = async (req, res) => {
       order.status = 'paid';
       order.payment.paymentId = session.payment_intent;
       await order.save();
-      
+
       sendNotification(order.user.toString(), "notification", {
         title: "Payment Success 💳",
         message: `Payment of ₹${order.amount} for Order ${order._id} was successful!`,
