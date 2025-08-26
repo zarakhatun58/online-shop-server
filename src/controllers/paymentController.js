@@ -30,8 +30,8 @@ export const createCheckoutSession = async (req, res) => {
         quantity: i.qty,
       })),
       mode: 'payment',
-      success_url: `${process.env.SUCCESS_URL}`,
-      cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
+      success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `http://localhost:5173/payment-cancelled`,
       metadata: {
         userId: userId.toString(),
         address: address?.toString() || 'Not provided',
