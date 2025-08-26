@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cosmeticUser from '../models/User.js';
-import { sendEmail } from '../utils/sendEmail.js';
 import { OAuth2Client } from 'google-auth-library';
+import sendOTP from "../utils/sendOTP.js";
+import crypto from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -99,38 +100,56 @@ export const logout = (req, res) => {
   res.json({ message: 'Logged out successfully' });
 };
 
+const otpStore = {};
+
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
+  const { phone } = req.body;
   try {
-    const user = await cosmeticUser.findOne({ email });
-    if (!user) return res.status(404).json({ error: 'Email not found' });
+    const user = await cosmeticUser.findOne({ phone });
+    if (!user) return res.status(404).json({ error: "Phone number not found" });
 
-    const resetToken = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const otp = crypto.randomInt(100000, 999999).toString();
+    otpStore[phone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
-    const html = `<h3>Password Reset</h3><p>Click the link to reset password:</p><a href="${resetLink}">${resetLink}</a>`;
-    await sendEmail(user.email, 'Reset Password', html);
+    await sendOTP(phone, otp);
 
-    res.json({ message: 'Reset email sent', resetToken });
+    res.json({ message: "OTP sent via SMS" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error generating reset token' });
+    res.status(500).json({ error: "Error sending OTP" });
   }
 };
+
+export const verifyOtp = async (req, res) => {
+  const { phone, otp } = req.body
+  const record = otpStore[phone]
+
+  if (!record) return res.status(400).json({ error: "OTP not found" })
+  if (Date.now() > record.expires) return res.status(400).json({ error: "OTP expired" })
+  if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" })
+
+  res.json({ message: "OTP verified" })
+}
+
 
 export const resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
+  const { phone, otp, newPassword } = req.body
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await cosmeticUser.findById(decoded.userId);
-    if (!user) return res.status(404).json({ error: 'Invalid token' });
+    const record = otpStore[phone]
+    if (!record) return res.status(400).json({ error: "OTP not requested" })
+    if (Date.now() > record.expires) return res.status(400).json({ error: "OTP expired" })
+    if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" })
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+    const user = await cosmeticUser.findOne({ phone })
+    if (!user) return res.status(404).json({ error: "User not found" })
 
-    res.json({ message: 'Password reset successfully' });
+    user.password = await bcrypt.hash(newPassword, 10)
+    await user.save()
+
+    delete otpStore[phone] 
+
+    res.json({ message: "Password reset successfully" })
   } catch (err) {
-    console.error(err);
-    res.status(400).json({ error: 'Token invalid or expired' });
+    res.status(500).json({ error: "Error resetting password" })
   }
-};
+}
