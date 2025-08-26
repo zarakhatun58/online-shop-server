@@ -1,7 +1,6 @@
 import cosmeticNotification from '../models/notification.js';
 import { sendNotification } from "../utils/sendNotification.js";
 
-// ✅ Send + Save Notification
 export const notifyNow = async (req, res) => {
   const { userId, title, message, type } = req.body;
 
@@ -10,7 +9,6 @@ export const notifyNow = async (req, res) => {
   }
 
   try {
-    // Save in DB
     const notification = await cosmeticNotification.create({
       userId,
       title,
@@ -18,7 +16,6 @@ export const notifyNow = async (req, res) => {
       type,
     });
 
-    // Send via socket
     sendNotification(userId, "notification", {
       id: notification._id,
       title,
@@ -34,7 +31,6 @@ export const notifyNow = async (req, res) => {
   }
 };
 
-// ✅ Get All User Notifications
 export const getUserNotifications = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -46,7 +42,6 @@ export const getUserNotifications = async (req, res) => {
   }
 };
 
-// ✅ Mark Single Notification as Read
 export const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -58,7 +53,6 @@ export const markAsRead = async (req, res) => {
   }
 };
 
-// ✅ Mark All Notifications as Read
 export const markAllAsRead = async (req, res) => {
   try {
     const { userId } = req.params;

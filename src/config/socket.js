@@ -1,4 +1,4 @@
-// socket.js
+
 import { Server } from "socket.io";
 
 let io;
@@ -15,13 +15,11 @@ export const initSocket = (server) => {
   io.on("connection", (socket) => {
     console.log("✅ Client connected:", socket.id);
 
-    // Register user
     socket.on("register", (userId) => {
       onlineUsers.set(userId, socket.id);
       console.log(`📌 User ${userId} registered with socket ${socket.id}`);
     });
 
-    // Disconnect handler
     socket.on("disconnect", () => {
       for (let [userId, id] of onlineUsers.entries()) {
         if (id === socket.id) {

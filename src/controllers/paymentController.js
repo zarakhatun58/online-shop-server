@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import cosmeticOrder from '../models/Order.js';
+import { sendNotification } from '../utils/sendNotification.js';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);

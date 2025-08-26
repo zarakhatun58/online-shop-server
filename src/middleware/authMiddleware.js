@@ -11,11 +11,10 @@ export const protect = async (req, res, next) => {
     const token = auth.split(' ')[1];
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Attach full user object
     const user = await cosmeticUser.findById(decoded.userId).select('-password');
     if (!user) return res.status(401).json({ error: 'User not found' });
 
-    req.user = user; // <-- now req.user exists
+    req.user = user; 
     next();
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
