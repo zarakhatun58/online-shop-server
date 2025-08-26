@@ -4,6 +4,7 @@ import cosmeticUser from '../models/User.js';
 import { OAuth2Client } from 'google-auth-library';
 import sendOTP from "../utils/sendOTP.js";
 import crypto from "crypto";
+import { sendNotification } from '../utils/sendNotification.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -31,6 +32,13 @@ export const register = async (req, res) => {
 
     const token = signToken(user);
 
+    await sendNotification(user._id.toString(), "notification", {
+      title: "Welcome 🎉",
+      message: `Welcome ${user.username}! Your account has been created.`,
+      type: "success",
+    });
+
+
     res.status(201).json({
       user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null },
       token,
@@ -51,7 +59,15 @@ export const login = async (req, res) => {
     if (!match) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = signToken(user);
-
+    await sendNotification(
+      user._id.toString(),
+      "notification",
+      {
+        title: "Login Successful ✅",
+        message: `Hi ${user.username}, you have successfully logged in.`,
+        type: "success",
+      }
+    );
     res.json({ token, user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null } });
   } catch (err) {
     console.error(err);
@@ -146,7 +162,7 @@ export const resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10)
     await user.save()
 
-    delete otpStore[phone] 
+    delete otpStore[phone]
 
     res.json({ message: "Password reset successfully" })
   } catch (err) {

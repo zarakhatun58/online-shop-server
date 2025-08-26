@@ -47,7 +47,15 @@ export const createCheckoutSession = async (req, res) => {
         orderId: session.id,
       },
     });
-
+    await sendNotification(
+      userId.toString(),
+      "notification",
+      {
+        title: "Payment Success 💳",
+        message: `Payment of ₹${amount} for Order ${session.id} was successful!`,
+        type: "success",
+      }
+    );
     res.status(200).json({ sessionId: session.id, order });
   } catch (err) {
     console.error(err);
