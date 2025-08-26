@@ -52,7 +52,7 @@ export const createCheckoutSession = async (req, res) => {
 
     order.payment.orderId = session.id;
     await order.save();
-    console.log("CLIENT_URL:", process.env.CLIENT_URL)
+    console.log("Success_URL:", process.env.SUCCESS_URL)
     res.status(200).json({ sessionId: session.id, order });
   } catch (err) {
     console.error(err);
