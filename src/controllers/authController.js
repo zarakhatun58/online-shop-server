@@ -32,7 +32,7 @@ export const register = async (req, res) => {
 
     const token = signToken(user);
 
-    await sendNotification(user._id.toString(), "notification", {
+    sendNotification(user._id.toString(), "notification", {
       title: "Welcome 🎉",
       message: `Welcome ${user.username}! Your account has been created.`,
       type: "success",
@@ -59,7 +59,7 @@ export const login = async (req, res) => {
     if (!match) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = signToken(user);
-    await sendNotification(
+    sendNotification(
       user._id.toString(),
       "notification",
       {

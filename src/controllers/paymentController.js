@@ -30,7 +30,7 @@ export const createCheckoutSession = async (req, res) => {
         quantity: i.qty,
       })),
       mode: 'payment',
-      success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${SUCCESS_URL}`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       metadata: {
         userId: userId.toString(),
@@ -48,7 +48,7 @@ export const createCheckoutSession = async (req, res) => {
         orderId: session.id,
       },
     });
-    await sendNotification(
+    sendNotification(
       userId.toString(),
       "notification",
       {
