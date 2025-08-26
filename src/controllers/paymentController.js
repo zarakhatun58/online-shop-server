@@ -30,9 +30,11 @@ export const createCheckoutSession = async (req, res) => {
         quantity: i.qty,
       })),
       mode: 'payment',
-      success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      // success_url: `http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+       success_url: `${process.env.CLIENT_URL}/payment-success?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `http://localhost:5173/payment-cancelled`,
       metadata: {
+        orderId: order._id.toString(),
         userId: userId.toString(),
         address: address?.toString() || 'Not provided',
       },
@@ -48,15 +50,8 @@ export const createCheckoutSession = async (req, res) => {
         orderId: session.id,
       },
     });
-    sendNotification(
-      userId.toString(),
-      "notification",
-      {
-        title: "Payment Success 💳",
-        message: `Payment of ₹${amount} for Order ${session.id} was successful!`,
-        type: "success",
-      }
-    );
+   order.payment.orderId = session.id;
+    await order.save();
     res.status(200).json({ sessionId: session.id, order });
   } catch (err) {
     console.error(err);
@@ -120,6 +115,12 @@ export const stripeWebhook = async (req, res) => {
       order.status = 'paid';
       order.payment.paymentId = session.payment_intent;
       await order.save();
+      
+      sendNotification(order.user.toString(), "notification", {
+        title: "Payment Success 💳",
+        message: `Payment of ₹${order.amount} for Order ${order._id} was successful!`,
+        type: "success",
+      });
     }
   }
 
