@@ -41,7 +41,7 @@ export const createCheckoutSession = async (req, res) => {
         quantity: i.qty,
       })),
       mode: 'payment',
-      success_url: `${process.env.CLIENT_URL}/payment-success?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.CLIENT_URL}/?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       metadata: {
         orderId: order._id.toString(),
@@ -52,7 +52,6 @@ export const createCheckoutSession = async (req, res) => {
 
     order.payment.orderId = session.id;
     await order.save();
-    console.log("Success_URL:", process.env.SUCCESS_URL)
     res.status(200).json({ sessionId: session.id, order });
   } catch (err) {
     console.error(err);
