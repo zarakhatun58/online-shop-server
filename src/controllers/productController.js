@@ -4,37 +4,60 @@ import cosmeticProduct from '../models/Product.js'
 // ✅ Create product
 export const createProduct = async (req, res) => {
   try {
-    let payload = req.body
+    const payload = req.body;
 
-    // If bulk insert
-    if (Array.isArray(payload.products)) {
-      payload = payload.products.map((p) => {
-        if (p.title && !p.name) p.name = p.title
-        if (p.price === undefined || p.price === null) {
-          throw new Error("Price is required")
-        }
-        return { ...p, price: Number(p.price) }
-      })
-      const saved = await cosmeticProduct.insertMany(payload)
-      return res.status(201).json(saved)
+    // Attach uploaded files
+    if (req.files) {
+      if (req.files.image) payload.image = `/uploads/products/${req.files.image[0].filename}`;
+      if (req.files.thumbnail) payload.thumbnail = `/uploads/products/${req.files.thumbnail[0].filename}`;
+      if (req.files.images) {
+        payload.images = req.files.images.map(file => `/uploads/products/${file.filename}`);
+      }
     }
 
-    // If single insert
-    if (payload.title && !payload.name) {
-      payload.name = payload.title
-      delete payload.title
-    }
-    if (payload.price === undefined || payload.price === null) {
-      return res.status(400).json({ message: "Price is required" })
-    }
-    payload.price = Number(payload.price)
-
-    const product = new cosmeticProduct(payload)
-    const saved = await product.save()
-    res.status(201).json(saved)
+    const product = new cosmeticProduct(payload);
+    const saved = await product.save();
+    res.status(201).json(saved);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: err.message || "Failed to create product" })
+    console.error(err);
+    res.status(500).json({ message: err.message || "Failed to create product" });
+  }
+};
+
+
+export const updateProduct = async (req, res) => {
+  try {
+    const product = await cosmeticProduct.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    Object.assign(product, req.body);
+    if (req.body.price) product.price = Number(req.body.price);
+
+    // Attach updated files
+    if (req.files) {
+      if (req.files.image) product.image = `/uploads/products/${req.files.image[0].filename}`;
+      if (req.files.thumbnail) product.thumbnail = `/uploads/products/${req.files.thumbnail[0].filename}`;
+      if (req.files.images) {
+        product.images = req.files.images.map(file => `/uploads/products/${file.filename}`);
+      }
+    }
+
+    const updated = await product.save();
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  try {
+    const product = await cosmeticProduct.findById(req.params.id)
+    if (!product) return res.status(404).json({ message: 'Product not found' })
+
+    await product.remove()
+    res.json({ message: 'Product deleted successfully' })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
   }
 }
 

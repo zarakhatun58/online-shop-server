@@ -82,11 +82,11 @@ export const loginWithGoogle = async (req, res) => {
     const payload = ticket.getPayload();
     if (!payload) return res.status(400).json({ error: 'Invalid Google token' });
 
-    const { sub: googleId, email, name, picture } = payload;
+    const { sub: _id, email, name, picture } = payload;
 
     let user = await cosmeticUser.findOne({ email });
     if (!user) {
-      user = await cosmeticUser.create({ googleId, email, username: name, profilePic: picture });
+      user = await cosmeticUser.create({ _id, email, username: name, profilePic: picture });
     }
 
     const appToken = signToken(user);

@@ -11,6 +11,7 @@ import paymentRoutes from './routes/paymentRoute.js'
 import notificationRoutes from './routes/notificationRoutes.js'
 import { initSocket } from './config/socket.js'
 import http from "http";
+import path from "path";
 
 dotenv.config()
 const app = express()
@@ -25,7 +26,7 @@ app.use(cors({
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan('dev'))
-
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 await connectDB()
 
 app.get('/', (_,res)=> res.json({ ok:true, service:'ecommerce-server' }))
