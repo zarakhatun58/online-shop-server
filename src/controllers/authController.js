@@ -124,26 +124,28 @@ export const logout = (req, res) => {
   res.json({ message: 'Logged out successfully' });
 };
 
-const otpStore = {};
+
 
 export const forgotPassword = async (req, res) => {
   const { phone } = req.body;
+  if (!phone) return res.status(400).json({ error: "Phone is required" });
+
   try {
     const user = await cosmeticUser.findOne({ phone });
     if (!user) return res.status(404).json({ error: "Phone not found" });
 
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await cosmeticOtp.deleteMany({ phone });
+    await cosmeticOtp.deleteMany({ phone }); // remove old OTPs
     await cosmeticOtp.create({ phone, otp, expiresAt });
 
-    await sendOTP(phone, otp);
+    await sendOtpToPhone(phone, otp); // send via Twilio
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error sending OTP" });
+    console.error("Error sending OTP:", err);
+    res.status(500).json({ error: err.message || "Failed to send OTP" });
   }
 };
 
@@ -152,10 +154,8 @@ export const verifyOtp = async (req, res) => {
   try {
     const record = await cosmeticOtp.findOne({ phone });
     if (!record) return res.status(400).json({ error: "OTP not found" });
-    if (record.expiresAt < new Date())
-      return res.status(400).json({ error: "OTP expired" });
-    if (record.otp !== otp)
-      return res.status(400).json({ error: "Invalid OTP" });
+    if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
+    if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
 
     res.json({ message: "OTP verified" });
   } catch (err) {
@@ -169,10 +169,8 @@ export const resetPassword = async (req, res) => {
   try {
     const record = await cosmeticOtp.findOne({ phone });
     if (!record) return res.status(400).json({ error: "OTP not requested" });
-    if (record.expiresAt < new Date())
-      return res.status(400).json({ error: "OTP expired" });
-    if (record.otp !== otp)
-      return res.status(400).json({ error: "Invalid OTP" });
+    if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
+    if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
 
     const user = await cosmeticUser.findOne({ phone });
     if (!user) return res.status(404).json({ error: "User not found" });
@@ -180,7 +178,7 @@ export const resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    await cosmeticOtp.deleteMany({ phone });
+    await cosmeticOtp.deleteMany({ phone }); // remove used OTPs
 
     res.json({ message: "Password reset successfully" });
   } catch (err) {

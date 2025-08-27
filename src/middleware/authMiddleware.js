@@ -29,6 +29,10 @@ export const isAdmin = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await cosmeticUser.findById(decoded.id);
 
+    console.log("Token:", token);
+    console.log("Decoded:", decoded);
+    console.log("User role:", user?.role);
+
     if (!user || user.role !== "admin") {
       return res.status(403).json({ message: "Access denied. Admin only." });
     }
