@@ -92,6 +92,67 @@ export const updatePaymentStatus = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+export const updateOrderStatus = async (req, res) => {
+  const { orderId } = req.params;
+  const { status, trackingNumber } = req.body;
+
+  try {
+    const order = await cosmeticOrder.findById(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    if (!['paid', 'shipped', 'delivered', 'failed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    order.status = status;
+
+    if (status === 'shipped') {
+      order.trackingNumber = trackingNumber || order.trackingNumber;
+      order.shippedAt = new Date();
+
+      const notification = await cosmeticNotification.create({
+        userId: order.user.toString(),
+        title: 'Order Shipped 🚚',
+        message: `Your order ${order._id} has been shipped. Tracking No: ${order.trackingNumber}`,
+        type: 'info',
+      });
+
+      sendNotification(order.user.toString(), 'notification', {
+        id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        createdAt: notification.createdAt,
+      });
+    }
+
+    if (status === 'delivered') {
+      order.deliveredAt = new Date();
+
+      const notification = await cosmeticNotification.create({
+        userId: order.user.toString(),
+        title: 'Order Delivered 📦',
+        message: `Your order ${order._id} has been delivered successfully.`,
+        type: 'success',
+      });
+
+      sendNotification(order.user.toString(), 'notification', {
+        id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        createdAt: notification.createdAt,
+      });
+    }
+
+    await order.save();
+
+    res.json({ message: `Order updated to ${status}`, order });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 
 export const stripeWebhook = async (req, res) => {

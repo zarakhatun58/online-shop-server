@@ -5,12 +5,13 @@ import {
   markAsRead,
   markAllAsRead
 } from '../controllers/notificationController.js';
+import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/notify-now', notifyNow);
-router.get('/:userId', getUserNotifications);
-router.put('/read/:id', markAsRead);
-router.put('/read-all/:userId', markAllAsRead);
+router.post('/notify-now',protect, notifyNow);
+router.get('/:userId', protect, getUserNotifications);
+router.put('/read/:id', protect, markAsRead);
+router.put('/read-all/:userId',protect, markAllAsRead);
 
 export default router;
