@@ -15,7 +15,7 @@ const signToken = (user) => {
 
 export const register = async (req, res) => {
   try {
-    let { username, email, password } = req.body;
+    let { username, email, password, role } = req.body;
 
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
@@ -40,7 +40,7 @@ export const register = async (req, res) => {
 
 
     res.status(201).json({
-      user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null },
+      user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null, role: user.role, },
       token,
     });
   } catch (err) {
