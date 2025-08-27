@@ -105,23 +105,46 @@ export const stripeWebhook = async (req, res) => {
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error(err);
+    console.error('Stripe Webhook Error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const order = await cosmeticOrder.findOne({ 'payment.orderId': session.id });
-    if (order) {
+
+    try {
+      const order = await cosmeticOrder.findOne({ 'payment.orderId': session.id });
+      if (!order) {
+        console.warn('Order not found for session:', session.id);
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      // Update order status
       order.status = 'paid';
       order.payment.paymentId = session.payment_intent;
       await order.save();
 
-      sendNotification(order.user.toString(), "notification", {
-        title: "Payment Success 💳",
-        message: `Payment of ₹${order.amount} for Order ${order._id} was successful!`,
-        type: "success",
+      // Save notification in DB
+      const notification = await cosmeticNotification.create({
+        userId: order.user.toString(),
+        title: 'Payment Success 💳',
+        message: `Your payment for Order ${order._id} was successful!`,
+        type: 'success',
       });
+
+      // Emit via socket
+      sendNotification(order.user.toString(), 'notification', {
+        id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        createdAt: notification.createdAt,
+      });
+
+      console.log('✅ Order updated and notification sent:', order._id);
+    } catch (err) {
+      console.error('Webhook handler failed:', err.message);
+      return res.status(500).json({ error: err.message });
     }
   }
 
