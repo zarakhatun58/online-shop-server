@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cosmeticUser from '../models/User.js';
 import { OAuth2Client } from 'google-auth-library';
-import sendOTP from "../utils/sendOTP.js";
+import sendOtp from "../utils/sendOTP.js";
 import cosmeticOtp from "../models/CosmeticOtp.js";
 import crypto from "crypto";
 import { sendNotification } from '../utils/sendNotification.js';
