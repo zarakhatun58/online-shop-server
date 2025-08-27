@@ -137,10 +137,10 @@ export const forgotPassword = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await cosmeticOtp.deleteMany({ phone }); // remove old OTPs
+    await cosmeticOtp.deleteMany({ phone }); 
     await cosmeticOtp.create({ phone, otp, expiresAt });
 
-    await sendOtpToPhone(phone, otp); // send via Twilio
+    await sendOtp(phone, otp); 
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
