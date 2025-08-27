@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import cosmeticUser from '../models/User.js';
 import { OAuth2Client } from 'google-auth-library';
 import sendOTP from "../utils/sendOTP.js";
+import cosmeticOtp from "../models/CosmeticOtp.js";
 import crypto from "crypto";
 import { sendNotification } from '../utils/sendNotification.js';
 
@@ -131,17 +132,21 @@ export const logout = (req, res) => {
 const otpStore = {};
 
 export const forgotPassword = async (req, res) => {
-  const { phone } = req.body;
+  const { email } = req.body;
+
   try {
-    const user = await cosmeticUser.findOne({ phone });
-    if (!user) return res.status(404).json({ error: "Phone number not found" });
+    const user = await cosmeticUser.findOne({ email });
+    if (!user) return res.status(404).json({ error: "Email not found" });
 
     const otp = crypto.randomInt(100000, 999999).toString();
-    otpStore[phone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
-    await sendOTP(phone, otp);
+    await cosmeticOtp.deleteMany({ email }); // remove old OTPs
+    await cosmeticOtp.create({ email, otp, expiresAt });
 
-    res.json({ message: "OTP sent via SMS" });
+    await sendOTP(email, otp);
+
+    res.json({ message: "OTP sent successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Error sending OTP" });
@@ -149,35 +154,45 @@ export const forgotPassword = async (req, res) => {
 };
 
 export const verifyOtp = async (req, res) => {
-  const { phone, otp } = req.body
-  const record = otpStore[phone]
+  const { email, otp } = req.body;
 
-  if (!record) return res.status(400).json({ error: "OTP not found" })
-  if (Date.now() > record.expires) return res.status(400).json({ error: "OTP expired" })
-  if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" })
+  try {
+    const record = await cosmeticOtp.findOne({ email });
+    if (!record) return res.status(400).json({ error: "OTP not found" });
+    if (record.expiresAt < new Date())
+      return res.status(400).json({ error: "OTP expired" });
+    if (record.otp !== otp)
+      return res.status(400).json({ error: "Invalid OTP" });
 
-  res.json({ message: "OTP verified" })
-}
-
+    res.json({ message: "OTP verified" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error verifying OTP" });
+  }
+};
 
 export const resetPassword = async (req, res) => {
-  const { phone, otp, newPassword } = req.body
+  const { email, otp, newPassword } = req.body;
+
   try {
-    const record = otpStore[phone]
-    if (!record) return res.status(400).json({ error: "OTP not requested" })
-    if (Date.now() > record.expires) return res.status(400).json({ error: "OTP expired" })
-    if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" })
+    const record = await cosmeticOtp.findOne({ email });
+    if (!record) return res.status(400).json({ error: "OTP not requested" });
+    if (record.expiresAt < new Date())
+      return res.status(400).json({ error: "OTP expired" });
+    if (record.otp !== otp)
+      return res.status(400).json({ error: "Invalid OTP" });
 
-    const user = await cosmeticUser.findOne({ phone })
-    if (!user) return res.status(404).json({ error: "User not found" })
+    const user = await cosmeticUser.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    user.password = await bcrypt.hash(newPassword, 10)
-    await user.save()
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
 
-    delete otpStore[phone]
+    await cosmeticOtp.deleteMany({ email }); // remove used OTPs
 
-    res.json({ message: "Password reset successfully" })
+    res.json({ message: "Password reset successfully" });
   } catch (err) {
-    res.status(500).json({ error: "Error resetting password" })
+    console.error(err);
+    res.status(500).json({ error: "Error resetting password" });
   }
-}
+};
