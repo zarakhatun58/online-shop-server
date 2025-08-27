@@ -17,18 +17,24 @@ export const register = async (req, res) => {
   try {
     let { username, email, password, role } = req.body;
 
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    if (!email || !password)
+      return res.status(400).json({ error: "Email and password required" });
 
     const existing = await cosmeticUser.findOne({ email });
-    if (existing) return res.status(400).json({ error: 'Email already exists' });
+    if (existing) return res.status(400).json({ error: "Email already exists" });
 
-    if (!username || username.trim() === '') {
-      username = email.split('@')[0] + Math.floor(Math.random() * 1000);
+    if (!username || username.trim() === "") {
+      username = email.split("@")[0] + Math.floor(Math.random() * 1000);
     }
 
     const hashed = await bcrypt.hash(password, 10);
 
-    const user = await cosmeticUser.create({ username, email, password: hashed,  role: req.body.role || "user"  });
+    const user = await cosmeticUser.create({
+      username,
+      email,
+      password: hashed,
+      role: role || "user", 
+    });
 
     const token = signToken(user);
 
@@ -38,16 +44,22 @@ export const register = async (req, res) => {
       type: "success",
     });
 
-
     res.status(201).json({
-      user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null, role: user.role, },
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        profilePic: user.profilePic || null,
+        role: user.role, 
+      },
       token,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: "Registration failed" });
   }
 };
+
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
