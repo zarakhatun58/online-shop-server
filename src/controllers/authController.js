@@ -28,7 +28,7 @@ export const register = async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
 
-    const user = await cosmeticUser.create({ username, email, password: hashed });
+    const user = await cosmeticUser.create({ username, email, password: hashed,  role: req.body.role || "user"  });
 
     const token = signToken(user);
 
@@ -68,7 +68,7 @@ export const login = async (req, res) => {
         type: "success",
       }
     );
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null } });
+    res.json({ token, user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null, role: user.role, } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Login failed' });
