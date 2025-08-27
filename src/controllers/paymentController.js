@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
 import cosmeticOrder from '../models/Order.js';
+import cosmeticNotification from '../models/notification.js';
 import { sendNotification } from '../utils/sendNotification.js';
 
 dotenv.config();
@@ -41,7 +42,7 @@ export const createCheckoutSession = async (req, res) => {
         quantity: i.qty,
       })),
       mode: 'payment',
-      success_url: `${process.env.CLIENT_URL}/?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${process.env.CLIENT_URL}/checkout?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       metadata: {
         orderId: order._id.toString(),
