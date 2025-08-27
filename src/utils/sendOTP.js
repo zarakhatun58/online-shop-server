@@ -1,27 +1,33 @@
-import Otp from "../models/CosmeticOtp.js";
+import cosmeticOtp from "../models/CosmeticOtp.js";
 import twilio from "twilio";  
 
 const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH);
 
- const sendOtp = async (req, res) => {
+const sendOtp = async (req, res) => {
   try {
-    const { email, phone } = req.body;
-    const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const { phone } = req.body;
 
-    await Otp.create({ email, otp, expiresAt });
-
-    if (phone) {
-      await client.messages.create({
-        body: `Your OTP is ${otp}. Valid for 5 minutes.`,
-        from: process.env.TWILIO_PHONE,
-        to: phone,
-      });
+    if (!phone) {
+      return res.status(400).json({ error: "Phone number is required" });
     }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await cosmeticOtp.deleteMany({ phone });
+
+    await cosmeticOtp.create({ phone, otp, expiresAt });
+
+    // Send OTP via Twilio SMS
+    await client.messages.create({
+      body: `Your OTP is ${otp}. Valid for 5 minutes.`,
+      from: process.env.TWILIO_PHONE,
+      to: phone,
+    });
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Error sending OTP:", err);
     res.status(500).json({ error: "Failed to send OTP" });
   }
 };

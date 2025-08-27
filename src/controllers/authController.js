@@ -34,12 +34,12 @@ export const register = async (req, res) => {
       username,
       email,
       password: hashed,
-      role: role || "user", 
+      role: role || "user",
     });
 
     const token = signToken(user);
 
-    sendNotification(user._id.toString(), "notification", {
+    await sendNotification(user._id.toString(), "notification", {
       title: "Welcome 🎉",
       message: `Welcome ${user.username}! Your account has been created.`,
       type: "success",
@@ -51,7 +51,7 @@ export const register = async (req, res) => {
         username: user.username,
         email: user.email,
         profilePic: user.profilePic || null,
-        role: user.role, 
+        role: user.role,
       },
       token,
     });
@@ -60,7 +60,6 @@ export const register = async (req, res) => {
     res.status(500).json({ error: "Registration failed" });
   }
 };
-
 
 export const login = async (req, res) => {
   const { email, password } = req.body;
@@ -72,15 +71,11 @@ export const login = async (req, res) => {
     if (!match) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = signToken(user);
-    sendNotification(
-      user._id.toString(),
-      "notification",
-      {
-        title: "Login Successful ✅",
-        message: `Hi ${user.username}, you have successfully logged in.`,
-        type: "success",
-      }
-    );
+    await sendNotification(user._id.toString(), "notification", {
+      title: "Login Successful ✅",
+      message: `Hi ${user.username}, you have successfully logged in.`,
+      type: "success",
+    });
     res.json({ token, user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null, role: user.role, } });
   } catch (err) {
     console.error(err);
