@@ -2,10 +2,10 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cosmeticUser from '../models/User.js';
 import { OAuth2Client } from 'google-auth-library';
-import sendOtp, { sendOtpSms } from "../utils/sendOTP.js";
 import cosmeticOtp from "../models/CosmeticOtp.js";
 import crypto from "crypto";
 import { sendNotification } from '../utils/sendNotification.js';
+import { sendEmail } from '../utils/sendEmail.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -124,67 +124,71 @@ export const logout = (req, res) => {
   res.json({ message: 'Logged out successfully' });
 };
 
-
-
 export const forgotPassword = async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) return res.status(400).json({ error: "Phone is required" });
-
   try {
-    const user = await cosmeticUser.findOne({ phone });
-    if (!user) return res.status(404).json({ error: "Phone not found" });
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const user = await cosmeticUser.findOne({ email });
+    if (!user) return res.status(404).json({ error: "Email not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await cosmeticOtp.deleteMany({ phone });
-    await cosmeticOtp.create({ phone, otp, expiresAt });
+    await cosmeticOtp.deleteMany({ email });
+    await cosmeticOtp.create({ email, otp, expiresAt });
 
-    await sendOtpSms(phone, otp);
+    await sendEmail(
+      email,
+      "Your OTP Code",
+      `<p>Your OTP code is <b>${otp}</b>. It is valid for 5 minutes.</p>`
+    );
 
-    res.json({ message: "OTP sent successfully" });
+    res.json({ message: "OTP sent successfully to email" });
   } catch (err) {
-    console.error("Error sending OTP:", err);
+    console.error("Forgot password error:", err);
     res.status(500).json({ error: err.message || "Failed to send OTP" });
   }
 };
 
-
 export const verifyOtp = async (req, res) => {
-  const { phone, otp } = req.body;
   try {
-    const record = await cosmeticOtp.findOne({ phone });
+    const { email, otp } = req.body;
+    const record = await cosmeticOtp.findOne({ email });
+
     if (!record) return res.status(400).json({ error: "OTP not found" });
     if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
     if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
 
-    res.json({ message: "OTP verified" });
+    res.json({ message: "OTP verified successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Verify OTP error:", err);
     res.status(500).json({ error: "Error verifying OTP" });
   }
 };
 
+
 export const resetPassword = async (req, res) => {
-  const { phone, otp, newPassword } = req.body;
   try {
-    const record = await cosmeticOtp.findOne({ phone });
+    const { email, otp, newPassword } = req.body;
+
+    const record = await cosmeticOtp.findOne({ email });
     if (!record) return res.status(400).json({ error: "OTP not requested" });
     if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
     if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
 
-    const user = await cosmeticUser.findOne({ phone });
+    const user = await cosmeticUser.findOne({ email });
     if (!user) return res.status(404).json({ error: "User not found" });
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
-    await cosmeticOtp.deleteMany({ phone }); // remove used OTPs
+    await cosmeticOtp.deleteMany({ email });
 
     res.json({ message: "Password reset successfully" });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error resetting password" });
+    console.error("Reset password error:", err);
+    res.status(500).json({ error: err.message || "Failed to reset password" });
   }
 };
 
