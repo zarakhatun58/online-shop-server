@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import cosmeticUser from '../models/User.js';
 import { OAuth2Client } from 'google-auth-library';
-import sendOtp from "../utils/sendOTP.js";
+import sendOtp, { sendOtpSms } from "../utils/sendOTP.js";
 import cosmeticOtp from "../models/CosmeticOtp.js";
 import crypto from "crypto";
 import { sendNotification } from '../utils/sendNotification.js';
@@ -137,10 +137,10 @@ export const forgotPassword = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await cosmeticOtp.deleteMany({ phone }); 
+    await cosmeticOtp.deleteMany({ phone });
     await cosmeticOtp.create({ phone, otp, expiresAt });
 
-    await sendOtp(phone, otp); 
+    await sendOtpSms(phone, otp);
 
     res.json({ message: "OTP sent successfully" });
   } catch (err) {
@@ -148,6 +148,7 @@ export const forgotPassword = async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to send OTP" });
   }
 };
+
 
 export const verifyOtp = async (req, res) => {
   const { phone, otp } = req.body;
