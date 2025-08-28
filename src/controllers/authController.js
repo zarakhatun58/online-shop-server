@@ -123,7 +123,6 @@ export const logout = (req, res) => {
   res.clearCookie('token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'Strict' });
   res.json({ message: 'Logged out successfully' });
 };
-
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -133,7 +132,7 @@ export const forgotPassword = async (req, res) => {
     if (!user) return res.status(404).json({ error: "Email not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
 
     await cosmeticOtp.deleteMany({ email });
     await cosmeticOtp.create({ email, otp, expiresAt });
@@ -166,7 +165,6 @@ export const verifyOtp = async (req, res) => {
     res.status(500).json({ error: "Error verifying OTP" });
   }
 };
-
 
 export const resetPassword = async (req, res) => {
   try {

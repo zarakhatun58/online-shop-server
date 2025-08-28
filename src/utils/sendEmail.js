@@ -1,26 +1,28 @@
-
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
 export const sendEmail = async (to, subject, html) => {
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        pass: process.env.EMAIL_PASS, 
       },
     });
 
-    await transporter.sendMail({
-      from: `"Footage Flow" <${process.env.EMAIL_USER}>`,
+    const info = await transporter.sendMail({
+      from: `"Online shoping" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html,
     });
 
-    console.log('Email sent to:', to);
+    console.log("Email sent:", info.messageId);
+    return info;
   } catch (err) {
-    console.error('Error sending email:', err);
+    console.error("Error sending email:", err);
     throw err;
   }
 };
