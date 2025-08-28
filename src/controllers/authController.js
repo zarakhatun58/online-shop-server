@@ -151,43 +151,37 @@ export const forgotPassword = async (req, res) => {
 };
 
 export const verifyOtp = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-    const record = await cosmeticOtp.findOne({ email });
+  const { email, otp } = req.body;
+  const record = await cosmeticOtp.findOne({ email });
 
-    if (!record) return res.status(400).json({ error: "OTP not found" });
-    if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
-    if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
+  if (!record) return res.status(400).json({ error: "OTP not found" });
+  if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
+  if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
 
-    res.json({ message: "OTP verified successfully" });
-  } catch (err) {
-    console.error("Verify OTP error:", err);
-    res.status(500).json({ error: "Error verifying OTP" });
-  }
+  record.verified = true; 
+  await record.save();
+
+  res.json({ message: "OTP verified successfully" });
 };
 
+
 export const resetPassword = async (req, res) => {
-  try {
-    const { email, otp, newPassword } = req.body;
+  const { email, newPassword } = req.body;
 
-    const record = await cosmeticOtp.findOne({ email });
-    if (!record) return res.status(400).json({ error: "OTP not requested" });
-    if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
-    if (record.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
+  const record = await cosmeticOtp.findOne({ email });
+  if (!record) return res.status(400).json({ error: "OTP not requested" });
+  if (!record.verified) return res.status(400).json({ error: "OTP not verified" });
+  if (record.expiresAt < new Date()) return res.status(400).json({ error: "OTP expired" });
 
-    const user = await cosmeticUser.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
+  const user = await cosmeticUser.findOne({ email });
+  if (!user) return res.status(404).json({ error: "User not found" });
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
 
-    await cosmeticOtp.deleteMany({ email });
+  await cosmeticOtp.deleteMany({ email });
 
-    res.json({ message: "Password reset successfully" });
-  } catch (err) {
-    console.error("Reset password error:", err);
-    res.status(500).json({ error: err.message || "Failed to reset password" });
-  }
+  res.json({ message: "Password reset successfully" });
 };
 
 
