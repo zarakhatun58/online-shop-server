@@ -4,7 +4,7 @@ const itemSchema = new mongoose.Schema(
   {
     product: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
+      ref: 'cosmeticProduct',
       required: true,
     },
     qty: { type: Number, required: true },
@@ -16,7 +16,7 @@ const cosmeticOrderSchema = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+       ref: 'cosmeticUser',
       required: true,
     },
     items: [itemSchema],
