@@ -2,7 +2,7 @@
 import express, { Router } from 'express'
 import {
   createCheckoutSession,
-  updateOrderStatus,
+  updatePaymentStatus,
   getOrders,
   stripeWebhook,
 } from '../controllers/paymentController.js';
@@ -11,7 +11,7 @@ const router = Router();
 
 router.post('/checkout', protect, createCheckoutSession);
 router.get('/all', protect, getOrders);
-router.put('/status', protect, updateOrderStatus);
+router.put('/status', protect, updatePaymentStatus);
 
 router.post('/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 

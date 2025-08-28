@@ -78,14 +78,15 @@ export const getOrders = async (req, res) => {
 
 // ------------------ Update Payment Status ------------------
 export const updatePaymentStatus = async (req, res) => {
-  const { sessionId, paymentStatus, paymentId } = req.body;
+ const { sessionId, paymentStatus, paymentId } = req.body;
 
   try {
-    const order = await cosmeticOrder.findOne({ 'payment.orderId': sessionId });
+    const order = await cosmeticOrder.findOne({ 'payment.sessionId': sessionId });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
     order.status = paymentStatus;
     order.payment.paymentId = paymentId || '';
+    order.payment.status = paymentStatus;
     await order.save();
 
     res.json({ message: 'Payment status updated', order });
