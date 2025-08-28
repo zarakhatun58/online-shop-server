@@ -52,6 +52,7 @@ export const createCheckoutSession = async (req, res) => {
     });
 
     order.payment.orderId = session.id;
+    order.payment.status = "pending";
     await order.save();
     res.status(200).json({ sessionId: session.id, order });
   } catch (err) {
@@ -176,8 +177,6 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 
-
-
 export const stripeWebhook = async (req, res) => {
   const sig = req.headers['stripe-signature'];
   let event;
@@ -206,6 +205,8 @@ export const stripeWebhook = async (req, res) => {
       // Update order status
       order.status = 'paid';
       order.payment.paymentId = session.payment_intent;
+      order.payment.status = "paid";
+      order.paidAt = new Date();
       await order.save();
 
       // Save notification in DB
