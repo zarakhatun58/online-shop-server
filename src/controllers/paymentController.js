@@ -20,7 +20,7 @@ export const createCheckoutSession = async (req, res) => {
     const amount = items.reduce((sum, i) => sum + i.price * i.qty, 0);
 
     const order = await cosmeticOrder.create({
-      user: userId,
+      user: req.user._id,
       items: items.map((i) => ({ product: i._id, qty: i.qty })),
       amount,
       address,
@@ -28,6 +28,7 @@ export const createCheckoutSession = async (req, res) => {
         provider: 'stripe',
         orderId: '',
       },
+      status: 'pending'
     });
 
     const session = await stripe.checkout.sessions.create({
@@ -45,7 +46,7 @@ export const createCheckoutSession = async (req, res) => {
       success_url: `${process.env.CLIENT_URL}/payment-success?order_id=${order._id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       metadata: {
-        orderId: order._id.toString(),
+       orderId: order._id.toString(),
         userId: userId.toString(),
         address: address?.toString() || 'Not provided',
       },
@@ -93,6 +94,7 @@ export const updatePaymentStatus = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 export const updateOrderStatus = async (req, res) => {
   const { orderId } = req.params;
   const { status, trackingNumber } = req.body;
