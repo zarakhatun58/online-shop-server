@@ -32,6 +32,7 @@ const cosmeticOrderSchema = new mongoose.Schema(
     payment: {
       provider: String,
       orderId: String,
+      sessionId: String,
       paymentId: String,
       signature: String,
     },

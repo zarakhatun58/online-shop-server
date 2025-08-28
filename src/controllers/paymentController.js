@@ -52,7 +52,7 @@ export const createCheckoutSession = async (req, res) => {
       },
     });
 
-    order.payment.orderId = session.id;
+    order.payment.sessionId = session.id;
     order.payment.status = "pending";
     await order.save();
     res.status(200).json({ sessionId: session.id, order });
@@ -198,7 +198,7 @@ export const stripeWebhook = async (req, res) => {
     const session = event.data.object;
 
     try {
-      const order = await cosmeticOrder.findOne({ 'payment.orderId': session.id });
+      const order = await cosmeticOrder.findOne({ 'payment.sessionId': session.id });
       if (!order) {
         console.warn('Order not found for session:', session.id);
         return res.status(404).json({ error: 'Order not found' });
