@@ -8,6 +8,7 @@ dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ------------------ Create Checkout Session ------------------
+
 export const createCheckoutSession = async (req, res) => {
   const { items, email, address } = req.body;
   const userId = req.user._id;
@@ -188,6 +189,25 @@ export const checkOrderStatus = async (req, res) => {
     const order = await cosmeticOrder.findById(orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
     res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// controller
+export const confirmOrderPayment = async (req, res) => {
+  try {
+    const { orderId, paymentId } = req.body;
+    const order = await cosmeticOrder.findById(orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    order.status = "paid";
+    order.payment.paymentId = paymentId || "manual-confirm";
+    order.payment.status = "paid";
+    order.paidAt = new Date();
+    await order.save();
+
+    res.json({ success: true, order });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

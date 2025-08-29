@@ -51,14 +51,12 @@ export const updateProduct = async (req, res) => {
 
 export const deleteProduct = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ message: "Only admins can delete products" });
+    const product = await cosmeticProduct.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
-    const product = await cosmeticProduct.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
-
-    await product.remove();
+    await product.deleteOne();
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
     console.error("Delete product error:", err);
