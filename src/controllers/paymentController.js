@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cosmeticOrder from '../models/Order.js';
 import cosmeticNotification from '../models/notification.js';
 import { sendNotification } from '../utils/sendNotification.js';
+import { getIO } from '../config/socket.js';
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -124,64 +125,64 @@ export const updatePaymentStatus = async (req, res) => {
 };
 
 
-export const stripeWebhook = async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
+// export const stripeWebhook = async (req, res) => {
+//   const sig = req.headers['stripe-signature'];
+//   let event;
 
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error('Stripe Webhook Error:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+//   try {
+//     event = stripe.webhooks.constructEvent(
+//       req.body,
+//       sig,
+//       process.env.STRIPE_WEBHOOK_SECRET
+//     );
+//   } catch (err) {
+//     console.error('Stripe Webhook Error:', err.message);
+//     return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
+//   if (event.type === 'checkout.session.completed') {
+//     const session = event.data.object;
 
-    try {
-      const order = await cosmeticOrder.findOne({ 'payment.sessionId': session.id });
-      if (!order) {
-        console.warn('Order not found for session:', session.id);
-        return res.status(404).json({ error: 'Order not found' });
-      }
+//     try {
+//       const order = await cosmeticOrder.findOne({ 'payment.sessionId': session.id });
+//       if (!order) {
+//         console.warn('Order not found for session:', session.id);
+//         return res.status(404).json({ error: 'Order not found' });
+//       }
 
-      // Update order status
-      order.status = 'paid';
-      order.payment.paymentId = session.payment_intent;
-      order.payment.status = "paid";
-      order.paidAt = new Date();
-      await order.save();
+//       // Update order status
+//       order.status = 'paid';
+//       order.payment.paymentId = session.payment_intent;
+//       order.payment.status = "paid";
+//       order.paidAt = new Date();
+//       await order.save();
 
-      // Save notification in DB
-      const notification = await cosmeticNotification.create({
-        userId: order.user.toString(),
-        title: 'Payment Success 💳',
-        message: `Your payment for Order ${order._id} was successful!`,
-        type: 'success',
-      });
+//       // Save notification in DB
+//       const notification = await cosmeticNotification.create({
+//         userId: order.user.toString(),
+//         title: 'Payment Success 💳',
+//         message: `Your payment for Order ${order._id} was successful!`,
+//         type: 'success',
+//       });
 
-      // Emit via socket
-      sendNotification(order.user.toString(), 'notification', {
-        id: notification._id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        createdAt: notification.createdAt,
-      });
+//       // Emit via socket
+//       sendNotification(order.user.toString(), 'notification', {
+//         id: notification._id,
+//         title: notification.title,
+//         message: notification.message,
+//         type: notification.type,
+//         createdAt: notification.createdAt,
+//       });
 
-      console.log('✅ Order updated and notification sent:', order._id);
-    } catch (err) {
-      console.error('Webhook handler failed:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
-  }
+//       console.log('✅ Order updated and notification sent:', order._id);
+//     } catch (err) {
+//       console.error('Webhook handler failed:', err.message);
+//       return res.status(500).json({ error: err.message });
+//     }
+//   }
 
-  res.json({ received: true });
-};
+//   res.json({ received: true });
+// };
 
 export const checkOrderStatus = async (req, res) => {
   try {
@@ -211,4 +212,115 @@ export const confirmOrderPayment = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+export const stripeWebhook = async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('⚠️ Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        // Reuse your updatePaymentStatus function
+        await updatePaymentStatusInternal({
+          sessionId: session.id,
+          paymentStatus: 'paid',
+          paymentId: session.payment_intent,
+        });
+        break;
+      }
+
+      case 'payment_intent.succeeded': {
+        const paymentIntent = event.data.object;
+        await updatePaymentStatusInternal({
+          sessionId: paymentIntent.metadata?.orderId, // assuming orderId stored in metadata
+          paymentStatus: 'paid',
+          paymentId: paymentIntent.id,
+        });
+        break;
+      }
+
+      case 'payment_intent.payment_failed': {
+        const failedIntent = event.data.object;
+        await updatePaymentStatusInternal({
+          sessionId: failedIntent.metadata?.orderId,
+          paymentStatus: 'failed',
+          paymentId: failedIntent.id,
+        });
+        break;
+      }
+
+      default:
+        // Ignore other events
+        break;
+    }
+  } catch (err) {
+    console.error('❌ Webhook handler error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+
+  res.json({ received: true });
+};
+
+const updatePaymentStatusInternal = async ({
+  sessionId,
+  paymentStatus,
+  paymentId,
+  orderId,
+}) => {
+  const query = orderId ? { _id: orderId } : { "payment.sessionId": sessionId };
+  const order = await cosmeticOrder.findOne(query);
+  if (!order) return console.warn("Order not found for session/orderId:", sessionId || orderId);
+
+  order.status = paymentStatus;
+  order.payment.status = paymentStatus;
+  if (paymentId) order.payment.paymentId = paymentId;
+  if (paymentStatus === "paid") order.paidAt = new Date();
+  await order.save();
+
+  if (paymentStatus === "paid") {
+    const notification = await cosmeticNotification.create({
+      userId: order.user.toString(),
+      title: "Payment Successful 💳",
+      message: `Your payment for Order ${order._id} was successful!`,
+      type: "success",
+    });
+
+    sendNotification(order.user.toString(), "notification", {
+      id: notification._id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      createdAt: notification.createdAt,
+    });
+  }
+
+  try {
+    const io = getIO();
+    const socketId = onlineUsers.get(order.user.toString());
+    if (socketId) {
+      io.to(socketId).emit("orderUpdate", {
+        orderId: order._id,
+        status: order.status,
+        paymentStatus: order.payment.status,
+        paidAt: order.paidAt,
+      });
+    }
+  } catch (err) {
+    console.error("❌ Socket emit failed:", err);
+  }
+
+  console.log(`✅ Order ${order._id} updated to ${paymentStatus}`);
 };
