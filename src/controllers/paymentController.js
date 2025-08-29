@@ -78,42 +78,25 @@ export const getOrders = async (req, res) => {
 
 // ------------------ Update Payment Status ------------------
 export const updatePaymentStatus = async (req, res) => {
- const { sessionId, paymentStatus, paymentId } = req.body;
+  const { sessionId, paymentStatus, paymentId } = req.body;
 
   try {
+    // 1️⃣ Find order by Stripe session ID
     const order = await cosmeticOrder.findOne({ 'payment.sessionId': sessionId });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
+    // 2️⃣ Update payment status
     order.status = paymentStatus;
     order.payment.paymentId = paymentId || '';
     order.payment.status = paymentStatus;
-    await order.save();
-
-    res.json({ message: 'Payment status updated', order });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export const updateOrderStatus = async (req, res) => {
-  const { orderId } = req.params;
-  const { status, trackingNumber } = req.body;
-
-  try {
-    const order = await cosmeticOrder.findById(orderId);
-    if (!order) return res.status(404).json({ error: "Order not found" });
-
-    if (!["paid", "shipped", "delivered", "failed"].includes(status)) {
-      return res.status(400).json({ error: "Invalid status" });
+    if (paymentStatus === "paid") {
+      order.paidAt = new Date();
     }
 
-    order.status = status;
+    await order.save();
 
-    // ✅ Payment Success
-    if (status === "paid") {
-      order.paidAt = new Date();
-
+    // 3️⃣ Send notification if paid
+    if (paymentStatus === "paid") {
       const notification = await cosmeticNotification.create({
         userId: order.user.toString(),
         title: "Payment Successful 💳",
@@ -121,6 +104,7 @@ export const updateOrderStatus = async (req, res) => {
         type: "success",
       });
 
+      // Emit via socket or push
       sendNotification(order.user.toString(), "notification", {
         id: notification._id,
         title: notification.title,
@@ -130,51 +114,10 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // ✅ Order Shipped
-    if (status === "shipped") {
-      order.trackingNumber = trackingNumber || order.trackingNumber;
-      order.shippedAt = new Date();
-
-      const notification = await cosmeticNotification.create({
-        userId: order.user.toString(),
-        title: "Order Shipped 🚚",
-        message: `Your order ${order._id} has been shipped. Tracking No: ${order.trackingNumber}`,
-        type: "info",
-      });
-
-      sendNotification(order.user.toString(), "notification", {
-        id: notification._id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        createdAt: notification.createdAt,
-      });
-    }
-
-    // ✅ Order Delivered
-    if (status === "delivered") {
-      order.deliveredAt = new Date();
-
-      const notification = await cosmeticNotification.create({
-        userId: order.user.toString(),
-        title: "Order Delivered 📦",
-        message: `Your order ${order._id} has been delivered successfully.`,
-        type: "success",
-      });
-
-      sendNotification(order.user.toString(), "notification", {
-        id: notification._id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        createdAt: notification.createdAt,
-      });
-    }
-
-    await order.save();
-
-    res.json({ message: `Order updated to ${status}`, order });
+    // 4️⃣ Return updated order as JSON
+    res.json({ message: 'Payment status updated', order });
   } catch (err) {
+    console.error('❌ updatePaymentStatus error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
@@ -237,4 +180,15 @@ export const stripeWebhook = async (req, res) => {
   }
 
   res.json({ received: true });
+};
+
+export const checkOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await cosmeticOrder.findById(orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    res.json(order);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
