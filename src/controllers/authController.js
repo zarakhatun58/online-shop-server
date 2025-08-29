@@ -47,7 +47,7 @@ export const register = async (req, res) => {
 
     res.status(201).json({
       user: {
-        id: user._id,
+        _id: user._id,  
         username: user.username,
         email: user.email,
         profilePic: user.profilePic || null,
@@ -76,7 +76,7 @@ export const login = async (req, res) => {
       message: `Hi ${user.username}, you have successfully logged in.`,
       type: "success",
     });
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null, role: user.role, } });
+    res.json({ token, user: { _id: user._id, username: user.username, email: user.email, profilePic: user.profilePic || null, role: user.role, } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Login failed' });
