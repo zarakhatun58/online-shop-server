@@ -22,7 +22,10 @@ app.use(cors({
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   credentials: true
 }));
-
+app.use((req, res, next) => {
+  if (req.originalUrl === '/api/payments/webhook') return next();
+  express.json()(req, res, next);
+});
 app.use(express.json())
 app.use(cookieParser())
 app.use(morgan('dev'))
