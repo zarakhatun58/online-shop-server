@@ -26,6 +26,6 @@ router.put(
 );
 router.get('/', listProducts)
 router.get('/:id', getProduct)
-router.delete('/:id', isAdmin, deleteProduct)
+router.delete('/:id', deleteProduct)
 
 export default router;
